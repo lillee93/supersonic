@@ -49,7 +49,7 @@ def canonicalize_code(source_code, extension):
             except subprocess.TimeoutExpired:
                 clang_proc.kill()
                 clang_out, clang_err = clang_out.communicate()
-                
+
             if clang_proc.returncode != 0:
                 print("clang-format process failed with return code:", clang_proc.returncode)
                 return ""
@@ -112,8 +112,6 @@ def apply_diff(original_code, diff_text):
         offset += len(new_hunk) - orig_len
 
     return "\n".join(new_lines)
-from difflib import unified_diff, SequenceMatcher
-from unidiff import PatchSet
 
 
 def compute_diff(original_code, optimized_code, context_lines=1):
