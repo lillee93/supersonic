@@ -63,10 +63,11 @@ def train(train_ds, valid_ds, out_dir, tok_dir,model_id="neulab/codebert-cpp",ma
     model.config.num_beams = 10
     model.config.early_stopping = True
     model.config.vocab_size = model.config.encoder.vocab_size
-
-    fn = functools.partial(preprocess_batch, tokenizer=tok, max_len=max_len)
-    tr = train_ds.map(fn, batched=True, remove_columns=train_ds.column_names)
-    va = valid_ds.map(fn, batched=True, remove_columns=valid_ds.column_names)
+    model.config.hidden_dropout_prob = 0.1
+    model.config.attention_dropout = 0.1
+    preprocess_fn = functools.partial(preprocess_batch, tokenizer=tok, max_len=max_len)
+    tr = train_ds.map(preprocess_fn, batched=True, remove_columns=train_ds.column_names)
+    va = valid_ds.map(preprocess_fn, batched=True, remove_columns=valid_ds.column_names)
     tr.set_format(type="torch", columns=["input_ids","attention_mask","decoder_attention_mask","labels"])
     va.set_format(type="torch", columns=["input_ids","attention_mask","decoder_attention_mask","labels"])
 

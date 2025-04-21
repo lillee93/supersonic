@@ -1,94 +1,113 @@
 import argparse
 import json
-from transformers import AutoTokenizer, EncoderDecoderModel
 import torch
-import utils  # Make sure your utils module contains canonicalize_code() and apply_diff()
+from transformers import AutoTokenizer, EncoderDecoderModel
+import utils
 
-def generate_optimized_code(original_code: str, model_dir: str):
-    # Load the tokenizer and model (BERT2BERT model based on CodeBERT)
-    tokenizer = AutoTokenizer.from_pretrained(model_dir)
+def generate_optimized_codes(original_code, model_dir,tokenizer_dir,use_beam = False, beam_size = 5, 
+                             num_return_sequences = 1,do_sample = False):
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_dir, use_fast=True)
     model = EncoderDecoderModel.from_pretrained(model_dir)
-    if torch.cuda.is_available():
-        model.to("cuda")
-    
-    # Canonicalize the source code (e.g. remove comments and normalize formatting)
-    canonical_input = utils.canonicalize_code(original_code, "C++")
-    
-    # Tokenize the canonical input for the model (using truncation; the data collator will dynamically pad)
-    inputs = tokenizer([canonical_input], return_tensors="pt", truncation=True, max_length=512)
-    if torch.cuda.is_available():
-        inputs = {k: v.to("cuda") for k, v in inputs.items()}
-    
-    # Generate the output (using greedy decoding by default)
-    outputs = model.generate(**inputs, max_new_tokens=512)
-    diff_text = tokenizer.decode(outputs[0].cpu(), skip_special_tokens=True)
-    
-    # Apply the predicted diff to obtain the final optimized code.
-    optimized_code = utils.apply_diff(canonical_input, diff_text)
-    return optimized_code, diff_text
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model.to(device)
 
-def process_test_dataset(model_dir: str, test_file: str, output_file: str, record_index: int = None):
-    results = []
-    with open(test_file, 'r', encoding='utf-8', errors='ignore') as f:
-        lines = f.readlines()
-        
-    if record_index is not None:
-        # Process only the specified record (0-based indexing).
-        try:
-            line = lines[record_index]
-        except IndexError:
-            print(f"Record index {record_index} is out of range. Test file contains {len(lines)} records.")
-            return
-        record = json.loads(line)
-        original_code = record.get("original")
-        if not original_code:
-            print("Record does not contain an 'original' field.")
-            return
-        optimized_code, diff_text = generate_optimized_code(original_code, model_dir)
-        record["predicted_diff"] = diff_text
-        record["optimized_code"] = optimized_code
-        results.append(record)
+    canon = utils.canonicalize_code(original_code, "C++")
+    inputs = tokenizer(
+        [canon],
+        return_tensors="pt",
+        truncation=True,
+        max_length=512,
+        padding="max_length"
+    ).to(device)
+
+    if use_beam:
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=512,
+            num_beams=beam_size,
+            early_stopping=True,
+            num_return_sequences=num_return_sequences,
+            do_sample=do_sample,
+            top_k=50,
+            top_p=0.95,
+            temperature=0.8,
+        )
     else:
-        # Process all records.
-        for idx, line in enumerate(lines):
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError as e:
-                print(f"Skipping line {idx} due to JSONDecodeError: {e}")
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=512,
+            num_beams=1,
+            early_stopping=True,
+            num_return_sequences=1,
+            do_sample=False
+        )
+
+    diffs = [
+        tokenizer.decode(o, skip_special_tokens=True, clean_up_tokenization_spaces=False)
+        for o in outputs
+    ]
+    patched = [utils.apply_diff(canon, d) for d in diffs]
+    return diffs, patched
+
+
+def process_test_dataset( model_dir, tokenizer_dir, test_file, output_file, max_records, use_beam = False,
+                        beam_size = 5, num_return_sequences = 1, do_sample = False):
+    results = []
+    with open(test_file, "r", encoding="utf-8", errors="ignore") as f:
+        for idx, line in enumerate(f):
+            if max_records is not None and idx >= max_records:
+                break
+            rec = json.loads(line)
+            orig = rec.get("original")
+            if not orig:
                 continue
-            original_code = record.get("original")
-            if not original_code:
-                continue
-            optimized_code, diff_text = generate_optimized_code(original_code, model_dir)
-            record["predicted_diff"] = diff_text
-            record["optimized_code"] = optimized_code
-            results.append(record)
-            print(f"Processed record {idx}:")
-            print("Predicted Diff:")
-            print(diff_text)
-            print("Optimized Code:")
-            print(optimized_code)
-            print("-" * 40)
-    
-    # Write the results into the output JSONL file.
-    with open(output_file, 'w', encoding='utf-8') as outf:
-        for record in results:
-            json.dump(record, outf, ensure_ascii=False)
-            outf.write("\n")
-            
-    print(f"Processed {len(results)} record(s). Predictions saved to {output_file}.")
+
+            diffs, patched = generate_optimized_codes(
+                orig, model_dir, tokenizer_dir,
+                use_beam, beam_size, num_return_sequences, do_sample
+            )
+
+            rec["predicted_diffs"] = diffs
+            rec["optimized_codes"]   = patched
+            results.append(rec)
+
+            print(f"\n=== Record {idx} ===")
+            for i, d in enumerate(diffs):
+                print(f"[{i}] DIFF:\n{d}\n----")
+
+    with open(output_file, "w", encoding="utf-8") as out:
+        for rec in results:
+            json.dump(rec, out, ensure_ascii=False)
+            out.write("\n")
+    print(f"\nProcessed {len(results)} records → {output_file}")
+
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Run inference on a test JSONL dataset to generate predicted diffs and optimized code, then write results to a file."
+    p = argparse.ArgumentParser(
+        description="Inference with optional beam vs greedy; separate model & tokenizer dirs"
     )
-    parser.add_argument("--model_dir", required=True, help="Directory of the fine-tuned model")
-    parser.add_argument("--test_file", required=True, help="Path to the test dataset JSONL file")
-    parser.add_argument("--output_file", required=True, help="File path to save the predictions JSONL file")
-    parser.add_argument("--record_index", type=int, default=None, help="Optional: Process only the record at this 0-based index")
-    args = parser.parse_args()
-    
-    process_test_dataset(args.model_dir, args.test_file, args.output_file, args.record_index)
+    p.add_argument("--model_dir",     required=True, help="Path to the fine‑tuned model")
+    p.add_argument("--tokenizer_dir", required=True, help="Path to the tokenizer folder")
+    p.add_argument("--test_file",     required=True, help="Input JSONL")
+    p.add_argument("--output_file",   required=True, help="Output JSONL")
+    p.add_argument("--max_records",   type=int, default=None)
+    p.add_argument("--use_beam",      action="store_true")
+    p.add_argument("--beam_size",     type=int, default=5)
+    p.add_argument("--num_return_sequences", type=int, default=1)
+    p.add_argument("--do_sample",     action="store_true")
+
+    args = p.parse_args()
+    process_test_dataset(
+        args.model_dir,
+        args.tokenizer_dir,
+        args.test_file,
+        args.output_file,
+        max_records=args.max_records,
+        use_beam=args.use_beam,
+        beam_size=args.beam_size,
+        num_return_sequences=args.num_return_sequences,
+        do_sample=args.do_sample
+    )
 
 if __name__ == "__main__":
     main()

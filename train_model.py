@@ -60,7 +60,7 @@ def process_data_to_model_inputs(batch, tokenizer):
 
     return batch
 
-def train_model(model_name, train_file, val_file, output_dir, batch_size):
+def train_model(model_name, train_file, val_file, output_dir, tokenizer_dir, batch_size):
 
     data_files = {"train": train_file, "validation": val_file}
     raw_datasets = load_dataset("json", data_files=data_files)
@@ -77,10 +77,13 @@ def train_model(model_name, train_file, val_file, output_dir, batch_size):
     model.config.max_length = 512
     model.config.early_stopping = True
     model.config.num_beams = 10
+
     model.config.vocab_size = model.config.encoder.vocab_size
     model.config.decoder_start_token_id = tokenizer.bos_token_id
     model.config.pad_token_id = tokenizer.pad_token_id
     model.config.eos_token_id = tokenizer.eos_token_id
+    model.config.hidden_dropout_prob = 0.1
+    model.config.attention_dropout = 0.1
     process_data_to_model_inputs_fn = functools.partial(process_data_to_model_inputs, tokenizer=tokenizer)
     # Define the preprocessing function to tokenize both the source code ("original")
     # and the target diff ("diff"), applying truncation up to a maximum length.
@@ -154,6 +157,7 @@ def train_model(model_name, train_file, val_file, output_dir, batch_size):
     trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
+        tokenizer = tokenizer,
         train_dataset=train_dataset,
         eval_dataset=valid_dataset,
         data_collator=data_collator,
@@ -163,7 +167,7 @@ def train_model(model_name, train_file, val_file, output_dir, batch_size):
     
     trainer.train()
     trainer.save_model(output_dir)
-    tokenizer.save_pretrained("E:\tokenizer")
+    tokenizer.save_pretrained(tokenizer_dir)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fine-tune a model for source code optimization diffs")
@@ -171,9 +175,10 @@ if __name__ == "__main__":
     parser.add_argument("--train_file", default="train.jsonl", help="Path to the training dataset JSONL file")
     parser.add_argument("--val_file", default="val.jsonl", help="Path to the validation dataset JSONL file")
     parser.add_argument("--output_dir", default="supersonic_model", help="Directory to save the fine-tuned model")
+    parser.add_argument("--tokenizer_dir", default="supersonic_model", help="Directory to save the fine-tuned model")
     parser.add_argument("--batch_size", type=int, default=8, help="Batch size per device")
     args = parser.parse_args()
-    train_model(args.model_name, args.train_file, args.val_file, args.output_dir, args.batch_size)
+    train_model(args.model_name, args.train_file, args.val_file, args.output_dir, args.tokenizer_dir, args.batch_size)
 
 
 # import os
