@@ -1,5 +1,6 @@
 import csv
 import os
+import sys
 
 def extract_codenet_pairs(codenet_path):
     pairs = []
@@ -61,9 +62,7 @@ def extract_codenet_pairs(codenet_path):
     return pairs
 
 if __name__ == "__main__":
-    import sys
     if len(sys.argv) < 2:
-        print("Usage: python codenet_extract.py <Project_CodeNet_directory>")
         sys.exit(1)
     code_path = sys.argv[1]
     result_pairs = extract_codenet_pairs(code_path)

@@ -1,7 +1,9 @@
 import os
 import json
 import random
+
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from difflib import SequenceMatcher
 from tqdm import tqdm
 import codenet_extract, utils
 
@@ -30,7 +32,7 @@ def process_candidate(pair_tuple, codenet_path):
         canon_new = utils.canonicalize_code(code_new, lang_name)
     except Exception:
         return None
-    from difflib import SequenceMatcher
+    
     ratio = SequenceMatcher(None, canon_old, canon_new).ratio()
     if ratio < 0.8:
         return None
@@ -93,10 +95,10 @@ def build_dataset(codenet_path, output_dir, max_pairs=None, num_workers=4):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Build dataset from CodeNet submissions using parallel processing with a progress bar")
+    parser = argparse.ArgumentParser(description="Build dataset from CodeNet submissions")
     parser.add_argument("--codenet_dir", required=True, help="Path to the Project_CodeNet directory")
     parser.add_argument("--output_dir", required=True, help="Directory to save the dataset JSONL files")
     parser.add_argument("--max_pairs", type=int, help="Maximum number of candidate pairs to process")
-    parser.add_argument("--workers", type=int, default=4, help="Number of parallel workers (default: 4)")
+    parser.add_argument("--workers", type=int, default=4, help="Number of workers")
     args = parser.parse_args()
     build_dataset(args.codenet_dir, args.output_dir, max_pairs=args.max_pairs, num_workers=args.workers)

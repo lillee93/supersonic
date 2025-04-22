@@ -50,7 +50,7 @@ def generate_optimized_codes(original_code, model_dir,tokenizer_dir,use_beam = F
     return diffs, patched
 
 
-def process_test_dataset( model_dir, tokenizer_dir, test_file, output_file, max_records, use_beam = False,
+def process_test_dataset(model_dir, tokenizer_dir, test_file, output_file, max_records, use_beam = False,
                         beam_size = 5, num_return_sequences = 1, do_sample = False):
     results = []
     with open(test_file, "r", encoding="utf-8", errors="ignore") as f:
@@ -84,10 +84,10 @@ def process_test_dataset( model_dir, tokenizer_dir, test_file, output_file, max_
 
 def main():
     p = argparse.ArgumentParser(
-        description="Inference with optional beam vs greedy; separate model & tokenizer dirs"
+        description="Inference with optional beam or greedy"
     )
     p.add_argument("--model_dir",     required=True, help="Path to the fine‑tuned model")
-    p.add_argument("--tokenizer_dir", required=True, help="Path to the tokenizer folder")
+    p.add_argument("--tokenizer_dir", required=True, help="Path to the tokenizer")
     p.add_argument("--test_file",     required=True, help="Input jsonl")
     p.add_argument("--output_file",   required=True, help="Output jsonl")
     p.add_argument("--max_records",   type=int, default=None)

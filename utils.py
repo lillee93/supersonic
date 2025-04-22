@@ -27,7 +27,7 @@ def canonicalize_code(source_code, extension):
                                           stdout=subprocess.PIPE,
                                           stderr=subprocess.PIPE)
             try:
-                gcc_out, gcc_err = gcc_proc.communicate(timeout=15)
+                gcc_out, _= gcc_proc.communicate(timeout=15)
             except subprocess.TimeoutExpired:
                 gcc_proc.kill()
                 gcc_out, gcc_err = gcc_proc.communicate()
@@ -45,10 +45,10 @@ def canonicalize_code(source_code, extension):
                                           stdout=subprocess.PIPE,
                                           stderr=subprocess.PIPE)
             try:
-                clang_out, clang_err = clang_proc.communicate(input=gcc_out, timeout=15)
+                clang_out, _ = clang_proc.communicate(input=gcc_out, timeout=15)
             except subprocess.TimeoutExpired:
                 clang_proc.kill()
-                clang_out, clang_err = clang_out.communicate()
+                clang_out, _ = clang_out.communicate()
 
             if clang_proc.returncode != 0:
                 print("clang-format process failed with return code:", clang_proc.returncode)

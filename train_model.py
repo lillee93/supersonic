@@ -50,7 +50,7 @@ def exact_match_metric(pred_labels, tokenizer):
     return {"exact_match": res["exact_match"]}
 
 
-def train(train_ds, valid_ds, out_dir, tok_dir,model_id="neulab/codebert-cpp",max_len=512, bs=4, lr=5e-5,
+def train(train_ds, valid_ds, output_dir, tokenizer_dir,model_id="neulab/codebert-cpp",max_len=512, bs=4, lr=5e-5,
     steps=20000, eval_steps=1000, grad_acc=4):
     tok = AutoTokenizer.from_pretrained(model_id, use_fast=True)
     model = EncoderDecoderModel.from_encoder_decoder_pretrained(model_id, model_id)
@@ -72,7 +72,7 @@ def train(train_ds, valid_ds, out_dir, tok_dir,model_id="neulab/codebert-cpp",ma
     va.set_format(type="torch", columns=["input_ids","attention_mask","decoder_attention_mask","labels"])
 
     args = Seq2SeqTrainingArguments(
-        output_dir=out_dir,
+        output_dir=output_dir,
         per_device_train_batch_size=bs,
         per_device_eval_batch_size=bs,
         gradient_accumulation_steps=grad_acc,
@@ -90,7 +90,7 @@ def train(train_ds, valid_ds, out_dir, tok_dir,model_id="neulab/codebert-cpp",ma
         fp16=True,
         logging_strategy="steps",
         logging_steps=50,
-        logging_dir=os.path.join(out_dir, "logs"),
+        logging_dir=os.path.join(output_dir, "logs"),
     )
 
     collate = DataCollatorForSeq2Seq(tok, model=model)
@@ -105,15 +105,15 @@ def train(train_ds, valid_ds, out_dir, tok_dir,model_id="neulab/codebert-cpp",ma
         callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
     )
     trainer.train()
-    trainer.save_model(out_dir)
-    tok.save_pretrained(tok_dir)
+    trainer.save_model(output_dir)
+    tok.save_pretrained(tokenizer_dir)
 
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--train_file", required=True)
     p.add_argument("--val_file",   required=True)
-    p.add_argument("--out_dir",    required=True)
+    p.add_argument("--output_dir",    required=True)
     p.add_argument("--tokenizer_dir",    required=True)
     p.add_argument("--max_len",   type=int,   default=512)
     p.add_argument("--batch_size",type=int,   default=4)
@@ -127,8 +127,8 @@ def main():
     train(
         train_ds=tr,
         valid_ds=va,
-        out_dir=args.out_dir,
-        tok_dir = args.tokenizer_dir,
+        output_dir=args.output_dir,
+        tokenizer_dir = args.tokenizer_dir,
         max_len=args.max_len,
         bs=args.batch_size,
         lr=args.lr,
