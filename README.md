@@ -32,5 +32,5 @@ python evaluate.py original_file optimized_file --input-file
 
 ## Key utils (`utils.py`)  
 - **canonicalize_code**: strip comments/macros + run clang‑format  
-- **compute_diff**: produce unified diff without `---/+++` headers  
-- **apply_diff**: parse/apply `@@` hunks back onto original code
+- **compute_diff**: produce diff 
+- **apply_diff**: apply diff onto original code
