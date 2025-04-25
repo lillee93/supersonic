@@ -93,7 +93,7 @@ def apply_diff(original_code, diff_text):
             hunk_lines.append(diff_lines[i])
             i += 1
         
-        # Check if there is at least one context line (starts with a space)
+        # Check if there is at least one context line
         if not any(hl.startswith(' ') for hl in hunk_lines):
             continue
 
@@ -107,6 +107,23 @@ def apply_diff(original_code, diff_text):
                 new_hunk.append(hl[1:])
         
         start_index = orig_start - 1 + offset
+
+        #validate the context lines
+        contexts = []
+        for index, line in enumerate(hunk_lines):
+            if line.startswith(' '):
+                contexts.append((index, line[1:]))
+
+        matched = False
+        for rel_index, context_text in contexts:
+            target_index = start_index + rel_index
+            if 0 <= target_index < len(new_lines) and new_lines[target_index] == context_text:
+                matched = True
+                break
+
+        if not matched:
+            continue
+        
         new_lines[start_index: start_index + orig_len] = new_hunk
         
         offset += len(new_hunk) - orig_len
