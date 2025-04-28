@@ -73,11 +73,17 @@ def apply_diff(original_code, diff_text):
     print(diff_lines)
     while i < len(diff_lines):
         line = diff_lines[i]
-        if not line.startswith('@@'):
+
+        if '@@' not in line:
             i += 1
             continue
-        
-        header_match = re.match(r'^@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@', line)
+
+        # a regex that tolerates extra leading chars/spaces/dashes
+        header_match = re.search(
+            r'-(\d+),?(\d*)\s+\+(\d+),?(\d*)\s*@@',
+            line
+        )
+
         if not header_match:
             i += 1
             continue
