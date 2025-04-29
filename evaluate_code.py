@@ -8,7 +8,7 @@ import time
 import psutil
 
 
-def compile_source(source_path: str, exe_path: str, extra_flags=None):
+def compile_source(source_path, exe_path, extra_flags=None):
 
     ext = os.path.splitext(source_path)[1].lower()
     driver = "gcc" if ext == ".c" else "g++"
@@ -61,7 +61,7 @@ def run_and_profile(exe_path, stdin_data = None):
     runtime = end - start
     return proc.returncode, runtime, peak_rss, out.decode(errors="ignore"), err.decode(errors="ignore")
 
-def profile_code(source_path, stdin_data = None):
+def profile_code(source_path, stdin_data):
 
     base = os.path.splitext(os.path.basename(source_path))[0]
     with tempfile.TemporaryDirectory() as td:
@@ -85,12 +85,9 @@ def compare_versions(original, optimized, stdin_data = None):
     if r2["return_code"] != 0:
         print(f"Error: {optimized} exited with code {r2['return_code']}", file=sys.stderr)
 
-    print()
     print(f"{'Program':<30}{'Time (s)':>10}{'Peak Mem (MB)':>15}")
-    print("-"*55)
     print(f"{os.path.basename(original):<30}{r1['time_s']:10.4f}{r1['peak_memory_mb']:15.2f}")
     print(f"{os.path.basename(optimized):<30}{r2['time_s']:10.4f}{r2['peak_memory_mb']:15.2f}")
-    print()
 
     if r1["time_s"] and r2["time_s"] > 0:
         speedup = r1["time_s"] / r2["time_s"]

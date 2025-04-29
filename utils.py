@@ -2,6 +2,7 @@ import os
 import re
 import subprocess
 import tempfile
+import difflib
 from difflib import unified_diff
 import tempfile
 from pathlib import Path
@@ -87,7 +88,7 @@ def apply_diff(original_code, diff_text):
         if not header_match:
             i += 1
             continue
-        
+
         orig_start = int(header_match.group(1))
         orig_len = int(header_match.group(2)) if header_match.group(2) else 1
         new_start = int(header_match.group(3))
@@ -147,3 +148,36 @@ def compute_diff(original_code, optimized_code, context_lines=1):
         diff_lines = diff_lines[2:]
     diff_text = "\n".join(diff_lines)
     return diff_text
+
+def write_code_to_file(code, filepath):
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    with open(filepath, "w") as f:
+        f.write(code)
+
+def compile_code(code, suffix=""):
+    tmp = tempfile.NamedTemporaryFile(suffix=f"{suffix}.cpp", delete=False, mode="w")
+    tmp.write(code)
+    tmp.flush()
+    tmp_name = tmp.name
+    tmp.close()
+    proc = subprocess.run(
+        ["g++", "-std=c++17", "-O2", "-c", tmp_name, "-o", os.devnull],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    os.remove(tmp_name)
+    return proc.returncode == 0, proc.stderr
+
+def normalize_code(code):
+    unified = code.replace('\r\n', '\n')
+    return re.sub(r"\s+", "", unified)
+
+def compute_change_percentage(orig, opt):
+    o = normalize_code(orig)
+    p = normalize_code(opt)
+    ratio = difflib.SequenceMatcher(None, o, p).ratio()
+    return (1 - ratio) * 100
+
+def is_identical(orig, opt):
+    return orig.strip() == opt.strip()
