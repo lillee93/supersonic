@@ -138,7 +138,7 @@ def apply_diff(original_code, diff_text):
     return "\n".join(new_lines)
 
 
-def compute_diff(original_code, optimized_code, context_lines=1):
+def compute_diff(original_code, optimized_code):
 
     orig_lines = original_code.splitlines()
     opt_lines = optimized_code.splitlines()
@@ -180,4 +180,6 @@ def compute_change_percentage(orig, opt):
     return (1 - ratio) * 100
 
 def is_identical(orig, opt):
-    return orig.strip() == opt.strip()
+    o = normalize_code(orig)
+    p = normalize_code(opt)
+    return o.strip() == p.strip()

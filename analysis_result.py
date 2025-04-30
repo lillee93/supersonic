@@ -33,6 +33,7 @@ def process_records(jsonl_path):
             if ok and not is_identical(orig, opt) and 0 < change_pct <= 20:
                 pair_dir = os.path.join(parent_dir, problem_id)
                 os.makedirs(pair_dir, exist_ok=True)
+                orig = orig.replace('\r\n', '\n')
                 write_code_to_file(orig, os.path.join(pair_dir, "original.cpp"))
                 write_code_to_file(opt, os.path.join(pair_dir, "optimized.cpp"))
                 paired += 1
